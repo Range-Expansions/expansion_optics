@@ -9,10 +9,14 @@ import skimage.morphology
 class Selective_Sweep(object):
 
     def __init__(self, speeds=None, widths=None,
-                 Lx=None, Ly = None, Nx=None, innoc_width=5):
+                 Lx=None, Ly = None, Nx=None, innoc_width=5,
+                 use_velocity_fluctuations=False, speed_sigmas=None):
 
         self.initial_speeds = speeds
         self.initial_widths = widths
+
+        self.use_velocity_fluctuations = use_velocity_fluctuations
+        self.speed_sigmas = speed_sigmas
 
         self.num_widths = self.initial_widths.shape[0]
         self.num_pops = np.unique(self.initial_speeds).shape[0]
@@ -47,11 +51,10 @@ class Selective_Sweep(object):
 
         self.initialize_meshes()
 
-        # Run the fast marching
+        # Prepare to run the fast marching method
 
         self.travel_times = None
         self.all_obstacles = None
-        #self.run_travel_times()
 
     def initialize_meshes(self):
 
@@ -67,7 +70,11 @@ class Selective_Sweep(object):
             if count == self.num_widths - 1:  # As the sum of all should equal one, but may not due to FP
                 num_to_occupy = self.Ny - sites_occupied
 
-            self.speed_mesh[cur_pop] = cur_speed
+            if not self.use_velocity_fluctuations:
+                self.speed_mesh[cur_pop] = cur_speed
+            else:
+                cur_sigma = self.speed_sigmas[count]
+                self.speed_mesh[cur_pop] = np.random.normal(cur_speed, cur_sigma, (self.Ny, self.Nx))
 
             self.lattice_mesh[cur_pop, sites_occupied:sites_occupied + num_to_occupy, 0:self.innoc_width + 1] = 1
 
