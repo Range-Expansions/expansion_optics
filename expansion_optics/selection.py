@@ -10,13 +10,15 @@ class Selective_Sweep(object):
 
     def __init__(self, speeds=None, widths=None,
                  Lx=None, Ly = None, Nx=None, innoc_width=5,
-                 use_velocity_fluctuations=False, speed_sigmas=None):
+                 use_velocity_fluctuations=False, speed_sigmas=None,
+                 min_speed = 1e-3):
 
         self.initial_speeds = speeds
         self.initial_widths = widths
 
         self.use_velocity_fluctuations = use_velocity_fluctuations
         self.speed_sigmas = speed_sigmas
+        self.min_speed = min_speed # Only important when you have fluctuating speeds
 
         self.num_widths = self.initial_widths.shape[0]
         self.num_pops = np.unique(self.initial_speeds).shape[0]
@@ -44,6 +46,7 @@ class Selective_Sweep(object):
             self.pop_type[np.where(label_positions)[0]] = label_num
 
         self.num_labels = labels.shape[0]
+        print 'There are:' , self.num_labels, 'strains with unique speeds!'
 
         # Initialize the lattice
         self.lattice_mesh = -1 * np.ones((self.num_labels, self.Ny, self.Nx), dtype=np.int)
@@ -74,7 +77,10 @@ class Selective_Sweep(object):
                 self.speed_mesh[cur_pop] = cur_speed
             else:
                 cur_sigma = self.speed_sigmas[count]
-                self.speed_mesh[cur_pop] = np.random.normal(cur_speed, cur_sigma, (self.Ny, self.Nx))
+                cur_mesh = self.speed_mesh[cur_pop]
+                cur_mesh[...] = np.random.normal(cur_speed, cur_sigma, (self.Ny, self.Nx))
+                cur_mesh[cur_mesh < self.min_speed] = self.min_speed
+
 
             self.lattice_mesh[cur_pop, sites_occupied:sites_occupied + num_to_occupy, 0:self.innoc_width + 1] = 1
 
