@@ -11,13 +11,14 @@ class Selective_Sweep(object):
     def __init__(self, speeds=None, widths=None,
                  Lx=None, Ly = None, Nx=None, innoc_width=5,
                  use_velocity_fluctuations=False, speed_sigmas=None,
-                 min_speed = 1e-3):
+                 min_noise_wavelength=4.0, min_speed = 1e-3):
 
         self.initial_speeds = speeds
         self.initial_widths = widths
 
         self.use_velocity_fluctuations = use_velocity_fluctuations
         self.speed_sigmas = speed_sigmas
+        self.min_noise_wavelength = min_noise_wavelength
         self.min_speed = min_speed # Only important when you have fluctuating speeds
 
         self.num_widths = self.initial_widths.shape[0]
@@ -33,8 +34,8 @@ class Selective_Sweep(object):
         xvalues = np.linspace(0, self.Lx, self.Nx, dtype=np.double)
         yvalues = np.linspace(0, self.Ly, self.Ny, dtype=np.double)
 
-        self.dx = xvalues[1] - xvalues[0]
-        self.dy = yvalues[1] - yvalues[0]
+        self.dx = float(xvalues[1] - xvalues[0])
+        self.dy = float(yvalues[1] - yvalues[0])
 
         self.X, self.Y = np.meshgrid(xvalues, yvalues)
 
@@ -78,7 +79,21 @@ class Selective_Sweep(object):
             else:
                 cur_sigma = self.speed_sigmas[count]
                 cur_mesh = self.speed_mesh[cur_pop]
-                cur_mesh[...] = np.random.normal(cur_speed, cur_sigma, (self.Ny, self.Nx))
+
+                rand_noise = np.random.normal(cur_speed, cur_sigma, (self.Ny, self.Nx))
+                ft = np.fft.fft2(rand_noise)
+
+                xfreq = np.fft.fftfreq(self.Nx, d=self.dx)
+                yfreq = np.fft.fftfreq(self.Ny, d=self.dy)
+
+                Xfreq, Yfreq = np.meshgrid(xfreq, yfreq)
+                mag_freq = np.sqrt(Xfreq ** 2 + Yfreq ** 2)
+                to_keep = mag_freq < 1./self.min_noise_wavelength  # Keep noise with *low* frequencies
+                ft[~to_keep] = 0.0 # Remove high frequencies
+
+                smoothed_noise = np.fft.ifft2(ft).real
+
+                cur_mesh[...] = smoothed_noise
                 cur_mesh[cur_mesh < self.min_speed] = self.min_speed
 
 
